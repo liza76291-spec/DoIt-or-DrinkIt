@@ -4,6 +4,10 @@
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 body {
@@ -69,20 +73,19 @@ body {
     border-radius: 16px;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
     padding: 24px 20px;
-    transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
     cursor: grab;
     touch-action: none;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    will-change: transform;
 }
 
 .card:active {
     cursor: grabbing;
 }
 
-/* скролл внутри карты, если текст не помещается */
 .card::-webkit-scrollbar {
     width: 4px;
 }
@@ -97,7 +100,6 @@ body {
     border-radius: 10px;
 }
 
-/* ТЕКСТ НА КАРТОЧКАХ — УВЕЛИЧЕННЫЙ */
 .card-text {
     font-size: 1.35rem;
     font-weight: 600;
@@ -105,16 +107,16 @@ body {
     color: #4A0E2E;
     text-align: left;
     word-break: break-word;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-/* для десктопа текст ещё крупнее */
 @media (min-width: 768px) {
     .card-text {
         font-size: 1.45rem;
     }
 }
 
-/* финальная карта */
 .card.final-card {
     background: #FFFFFF;
     justify-content: center;
@@ -123,6 +125,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    cursor: default;
 }
 
 .card.final-card .card-text {
@@ -143,6 +146,7 @@ body {
     cursor: pointer;
     transition: 0.2s;
     font-family: inherit;
+    user-select: none;
 }
 
 .reset-btn:hover {
@@ -162,7 +166,6 @@ body {
     opacity: 0.8;
 }
 
-/* СЧЁТЧИК */
 .stats {
     text-align: center;
     margin-top: 16px;
@@ -174,36 +177,30 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* анимация ухода карты */
 .card.swipe-left {
-    transform: translateX(-150%) rotate(-12deg);
+    transform: translateX(-150%) rotate(-12deg) !important;
     opacity: 0;
-    transition: 0.25s ease-out;
-    position: absolute;
+    transition: transform 0.25s ease-out, opacity 0.2s ease-out !important;
 }
 
 .card.swipe-right {
-    transform: translateX(150%) rotate(12deg);
+    transform: translateX(150%) rotate(12deg) !important;
     opacity: 0;
-    transition: 0.25s ease-out;
-    position: absolute;
+    transition: transform 0.25s ease-out, opacity 0.2s ease-out !important;
 }
 
 .card.swipe-up {
-    transform: translateY(-150%) rotate(8deg);
+    transform: translateY(-150%) rotate(8deg) !important;
     opacity: 0;
-    transition: 0.25s ease-out;
-    position: absolute;
+    transition: transform 0.25s ease-out, opacity 0.2s ease-out !important;
 }
 
 .card.swipe-down {
-    transform: translateY(150%) rotate(-8deg);
+    transform: translateY(150%) rotate(-8deg) !important;
     opacity: 0;
-    transition: 0.25s ease-out;
-    position: absolute;
+    transition: transform 0.25s ease-out, opacity 0.2s ease-out !important;
 }
 
-/* адаптация для мобильных устройств */
 @media (max-width: 500px) {
     body {
         padding: 12px;
