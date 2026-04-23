@@ -4,9 +4,6 @@
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
 }
 
 body {
@@ -74,7 +71,7 @@ body {
     padding: 24px 20px;
     transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
     cursor: grab;
-    touch-action: pan-y pinch-zoom;
+    touch-action: none;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -85,7 +82,7 @@ body {
     cursor: grabbing;
 }
 
-/* скролл внутри карты */
+/* скролл внутри карты, если текст не помещается */
 .card::-webkit-scrollbar {
     width: 4px;
 }
@@ -100,7 +97,7 @@ body {
     border-radius: 10px;
 }
 
-/* ТЕКСТ НА КАРТОЧКАХ */
+/* ТЕКСТ НА КАРТОЧКАХ — УВЕЛИЧЕННЫЙ */
 .card-text {
     font-size: 1.35rem;
     font-weight: 600;
@@ -146,6 +143,11 @@ body {
     cursor: pointer;
     transition: 0.2s;
     font-family: inherit;
+}
+
+.reset-btn:hover {
+    transform: scale(1.02);
+    background: #B71C1C;
 }
 
 .reset-btn:active {
