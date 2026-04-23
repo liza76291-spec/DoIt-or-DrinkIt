@@ -1,4 +1,3 @@
-
 const CHALLENGES_LIST = [
 "На счёт «три» все показывают на того, кто чаще всех берёт телефон в туалет. Тот, на кого указали, пьёт и круг ходит в туалет только с разрешения компании.",
 "Назовите 3 песни группы «Руки Вверх» за 4 секунды. Кто не справился, пьёт и танцует ламбаду под любую песню этой группы.",
@@ -111,7 +110,6 @@ let startX = 0, startY = 0;
 let currentCard = null;
 
 // DOM элементы
-const swipeArea = document.getElementById('swipeArea');
 const cardStack = document.getElementById('cardStack');
 const cardsLeftSpan = document.getElementById('cardsLeft');
 
@@ -132,7 +130,6 @@ function showFinalCard() {
     cardStack.innerHTML = '';
     const finalCardDiv = document.createElement('div');
     finalCardDiv.className = 'card final-card';
-    finalCardDiv.id = 'currentCard';
     finalCardDiv.innerHTML = `
         <div class="card-text">🏆 ВСЕ ЗАДАНИЯ КОНЧИЛИСЬ! 🏆<br><br>Вы прошли всю колоду!</div>
         <button class="reset-btn" id="resetGameBtn">НАЧАТЬ ЗАНОВО</button>
@@ -180,6 +177,9 @@ function loadNextCard() {
     cardStack.appendChild(newCard);
     currentCardElement = newCard;
     currentCard = newCard;
+    
+    // ВАЖНО: добавляем слушатель на новую карту
+    initSwipeListener(newCard);
 }
 
 function removeCurrentCard(direction) {
@@ -211,6 +211,7 @@ function resetGame() {
     currentCardElement = firstCard;
     currentCard = firstCard;
     
+    initSwipeListener(firstCard);
     isAnimating = false;
 }
 
@@ -218,15 +219,21 @@ function resetGame() {
 function initSwipeListener(element) {
     if (!element) return;
     
-    element.addEventListener('touchstart', (e) => {
+    // Удаляем старые слушатели, чтобы не было дублей
+    const newElement = element.cloneNode(true);
+    element.parentNode.replaceChild(newElement, element);
+    
+    const cardElement = newElement;
+    
+    cardElement.addEventListener('touchstart', (e) => {
         if (isAnimating) return;
         const touch = e.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
-        currentCard = e.currentTarget;
+        currentCard = cardElement;
     }, { passive: true });
     
-    element.addEventListener('touchmove', (e) => {
+    cardElement.addEventListener('touchmove', (e) => {
         if (isAnimating || !currentCard) return;
         
         const touch = e.touches[0];
@@ -239,7 +246,7 @@ function initSwipeListener(element) {
         }
     }, { passive: false });
     
-    element.addEventListener('touchend', (e) => {
+    cardElement.addEventListener('touchend', (e) => {
         if (isAnimating || !currentCard) {
             currentCard = null;
             return;
@@ -252,11 +259,11 @@ function initSwipeListener(element) {
         
         currentCard.style.transform = '';
         
-        if (Math.abs(deltaX) > 80) {
+        if (Math.abs(deltaX) > 70) {
             isAnimating = true;
             const direction = deltaX > 0 ? 'right' : 'left';
             removeCurrentCard(direction);
-        } else if (Math.abs(deltaY) > 80) {
+        } else if (Math.abs(deltaY) > 70) {
             isAnimating = true;
             const direction = deltaY > 0 ? 'down' : 'up';
             removeCurrentCard(direction);
@@ -266,11 +273,11 @@ function initSwipeListener(element) {
     });
     
     // Для мыши (десктоп)
-    element.addEventListener('mousedown', (e) => {
+    cardElement.addEventListener('mousedown', (e) => {
         if (isAnimating) return;
         startX = e.clientX;
         startY = e.clientY;
-        currentCard = e.currentTarget;
+        currentCard = cardElement;
         currentCard.style.cursor = 'grabbing';
     });
     
@@ -294,11 +301,11 @@ function initSwipeListener(element) {
         
         currentCard.style.transform = '';
         
-        if (Math.abs(deltaX) > 80) {
+        if (Math.abs(deltaX) > 70) {
             isAnimating = true;
             const direction = deltaX > 0 ? 'right' : 'left';
             removeCurrentCard(direction);
-        } else if (Math.abs(deltaY) > 80) {
+        } else if (Math.abs(deltaY) > 70) {
             isAnimating = true;
             const direction = deltaY > 0 ? 'down' : 'up';
             removeCurrentCard(direction);
@@ -309,6 +316,8 @@ function initSwipeListener(element) {
             currentCardElement.style.cursor = 'grab';
         }
     });
+    
+    return cardElement;
 }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -321,18 +330,9 @@ function init() {
     const firstCard = createNewCard(firstText);
     cardStack.appendChild(firstCard);
     currentCardElement = firstCard;
+    currentCard = firstCard;
     
-    initSwipeListener(currentCardElement);
-    
-    const observer = new MutationObserver(() => {
-        const newCard = document.querySelector('#cardStack .card:not(.final-card):last-child');
-        if (newCard && newCard !== currentCardElement && !newCard.classList.contains('final-card')) {
-            initSwipeListener(newCard);
-            currentCardElement = newCard;
-        }
-    });
-    
-    observer.observe(cardStack, { childList: true, subtree: false });
+    initSwipeListener(firstCard);
 }
 
 init();
