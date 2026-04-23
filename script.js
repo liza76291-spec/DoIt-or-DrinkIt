@@ -103,7 +103,7 @@ const CHALLENGES_LIST = [
 ];
 
 // ========== ПЕРЕМЕННЫЕ ==========
-let remainingCards = [...CHALLENGES_LIST];
+let remainingCards = [];
 let currentCardElement = null;
 let isAnimating = false;
 let startX = 0, startY = 0;
@@ -175,24 +175,25 @@ function loadNextCard() {
     
     const newCard = createNewCard(nextText);
     cardStack.appendChild(newCard);
-    currentCardElement = newCard;
-    currentCard = newCard;
     
-    // ВАЖНО: добавляем слушатель на новую карту
-    initSwipeListener(newCard);
+    // Удаляем старую карту
+    if (currentCardElement && currentCardElement !== newCard) {
+        currentCardElement.remove();
+    }
+    
+    currentCardElement = newCard;
+    setupSwipeListeners(currentCardElement);
 }
 
 function removeCurrentCard(direction) {
-    if (!currentCardElement) return;
+    if (!currentCardElement || isAnimating) return;
+    isAnimating = true;
     
     if (direction) {
         currentCardElement.classList.add(`swipe-${direction}`);
     }
     
     setTimeout(() => {
-        if (currentCardElement && currentCardElement.parentNode) {
-            currentCardElement.remove();
-        }
         loadNextCard();
         isAnimating = false;
     }, 250);
@@ -209,115 +210,130 @@ function resetGame() {
     const firstCard = createNewCard(firstText);
     cardStack.appendChild(firstCard);
     currentCardElement = firstCard;
-    currentCard = firstCard;
     
-    initSwipeListener(firstCard);
+    setupSwipeListeners(firstCard);
     isAnimating = false;
 }
 
-// ========== ОБРАБОТЧИКИ СВАЙПА ==========
-function initSwipeListener(element) {
-    if (!element) return;
+// ========== НАСТРОЙКА СВАЙПА (чистая, без cloneNode) ==========
+function setupSwipeListeners(card) {
+    if (!card) return;
     
-    // Удаляем старые слушатели, чтобы не было дублей
-    const newElement = element.cloneNode(true);
-    element.parentNode.replaceChild(newElement, element);
+    // Удаляем старые слушатели через замену (но без дублей)
+    const newCard = card.cloneNode(true);
+    card.parentNode.replaceChild(newCard, card);
     
-    const cardElement = newElement;
+    // Обновляем глобальную ссылку
+    if (currentCardElement === card) {
+        currentCardElement = newCard;
+    }
     
-    cardElement.addEventListener('touchstart', (e) => {
-        if (isAnimating) return;
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-        currentCard = cardElement;
-    }, { passive: true });
+    newCard.addEventListener('touchstart', onTouchStart, { passive: true });
+    newCard.addEventListener('touchmove', onTouchMove, { passive: false });
+    newCard.addEventListener('touchend', onTouchEnd);
     
-    cardElement.addEventListener('touchmove', (e) => {
-        if (isAnimating || !currentCard) return;
-        
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - startX;
-        const deltaY = touch.clientY - startY;
-        
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-            e.preventDefault();
-            currentCard.style.transform = `translate(${deltaX * 0.5}px, ${deltaY * 0.3}px) rotate(${deltaX * 0.03}deg)`;
-        }
-    }, { passive: false });
+    newCard.addEventListener('mousedown', onMouseDown);
+}
+
+function onTouchStart(e) {
+    if (isAnimating) return;
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    currentCard = e.currentTarget;
+}
+
+function onTouchMove(e) {
+    if (isAnimating || !currentCard) return;
     
-    cardElement.addEventListener('touchend', (e) => {
-        if (isAnimating || !currentCard) {
-            currentCard = null;
-            return;
-        }
-        
-        const endX = e.changedTouches[0].clientX;
-        const endY = e.changedTouches[0].clientY;
-        const deltaX = endX - startX;
-        const deltaY = endY - startY;
-        
-        currentCard.style.transform = '';
-        
-        if (Math.abs(deltaX) > 70) {
-            isAnimating = true;
-            const direction = deltaX > 0 ? 'right' : 'left';
-            removeCurrentCard(direction);
-        } else if (Math.abs(deltaY) > 70) {
-            isAnimating = true;
-            const direction = deltaY > 0 ? 'down' : 'up';
-            removeCurrentCard(direction);
-        }
-        
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        e.preventDefault();
+        currentCard.style.transform = `translate(${deltaX * 0.5}px, ${deltaY * 0.3}px) rotate(${deltaX * 0.03}deg)`;
+    }
+}
+
+function onTouchEnd(e) {
+    if (isAnimating || !currentCard) {
         currentCard = null;
-    });
+        return;
+    }
     
-    // Для мыши (десктоп)
-    cardElement.addEventListener('mousedown', (e) => {
-        if (isAnimating) return;
-        startX = e.clientX;
-        startY = e.clientY;
-        currentCard = cardElement;
-        currentCard.style.cursor = 'grabbing';
-    });
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
     
-    window.addEventListener('mousemove', (e) => {
-        if (isAnimating || !currentCard) return;
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-            currentCard.style.transform = `translate(${deltaX * 0.5}px, ${deltaY * 0.3}px) rotate(${deltaX * 0.03}deg)`;
-        }
-    });
+    currentCard.style.transform = '';
     
-    window.addEventListener('mouseup', (e) => {
-        if (isAnimating || !currentCard) {
-            currentCard = null;
-            return;
-        }
-        
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        currentCard.style.transform = '';
-        
-        if (Math.abs(deltaX) > 70) {
-            isAnimating = true;
-            const direction = deltaX > 0 ? 'right' : 'left';
-            removeCurrentCard(direction);
-        } else if (Math.abs(deltaY) > 70) {
-            isAnimating = true;
-            const direction = deltaY > 0 ? 'down' : 'up';
-            removeCurrentCard(direction);
-        }
-        
-        currentCard = null;
-        if (currentCardElement) {
-            currentCardElement.style.cursor = 'grab';
-        }
-    });
+    if (Math.abs(deltaX) > 70) {
+        const direction = deltaX > 0 ? 'right' : 'left';
+        removeCurrentCard(direction);
+    } else if (Math.abs(deltaY) > 70) {
+        const direction = deltaY > 0 ? 'down' : 'up';
+        removeCurrentCard(direction);
+    }
     
-    return cardElement;
+    currentCard = null;
+}
+
+// Десктопные события
+let isDragging = false;
+
+function onMouseDown(e) {
+    if (isAnimating) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    currentCard = e.currentTarget;
+    currentCard.style.cursor = 'grabbing';
+    isDragging = true;
+    
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+}
+
+function onMouseMove(e) {
+    if (!isDragging || isAnimating || !currentCard) return;
+    
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        currentCard.style.transform = `translate(${deltaX * 0.5}px, ${deltaY * 0.3}px) rotate(${deltaX * 0.03}deg)`;
+    }
+}
+
+function onMouseUp(e) {
+    if (!isDragging || !currentCard) {
+        cleanupMouseEvents();
+        return;
+    }
+    
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    currentCard.style.transform = '';
+    
+    if (Math.abs(deltaX) > 70) {
+        const direction = deltaX > 0 ? 'right' : 'left';
+        removeCurrentCard(direction);
+    } else if (Math.abs(deltaY) > 70) {
+        const direction = deltaY > 0 ? 'down' : 'up';
+        removeCurrentCard(direction);
+    }
+    
+    currentCard.style.cursor = 'grab';
+    cleanupMouseEvents();
+}
+
+function cleanupMouseEvents() {
+    isDragging = false;
+    currentCard = null;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
 }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -330,9 +346,8 @@ function init() {
     const firstCard = createNewCard(firstText);
     cardStack.appendChild(firstCard);
     currentCardElement = firstCard;
-    currentCard = firstCard;
     
-    initSwipeListener(firstCard);
+    setupSwipeListeners(firstCard);
 }
 
 init();
