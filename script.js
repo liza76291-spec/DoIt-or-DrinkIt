@@ -1,4 +1,3 @@
-
 const CHALLENGES_LIST = [
 "На счёт «три» все показывают на того, кто чаще всех берёт телефон в туалет. Тот, на кого указали, пьёт и круг ходит в туалет только с разрешения компании.",
 "Назовите 3 песни группы «Руки Вверх» за 4 секунды. Кто не справился, пьёт и танцует ламбаду под любую песню этой группы.",
@@ -103,19 +102,17 @@ const CHALLENGES_LIST = [
 "На счёт «три» все показывают на самого доброго. Он должен похвалить каждого, кто на него показал, и выпить вместе с ними по глотку."
 ];
 
-// ========== ПЕРЕМЕННЫЕ ==========
 let remainingCards = [...CHALLENGES_LIST];
 let currentCardElement = null;
 let isAnimating = false;
-let startX = 0, startY = 0;
-let currentCard = null;
 
-// DOM элементы
-const swipeArea = document.getElementById('swipeArea');
+let dragStartX = 0, dragStartY = 0;
+let isDragging = false;
+let hasMoved = false;
+
 const cardStack = document.getElementById('cardStack');
 const cardsLeftSpan = document.getElementById('cardsLeft');
 
-// ========== ФУНКЦИИ ==========
 function shuffleArray(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -128,6 +125,22 @@ function updateStats() {
     cardsLeftSpan.textContent = remainingCards.length;
 }
 
+function escapeHtml(text) {
+    return text.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+function createNewCard(text) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div class="card-text">${escapeHtml(text)}</div>`;
+    return card;
+}
+
 function showFinalCard() {
     cardStack.innerHTML = '';
     const finalCardDiv = document.createElement('div');
@@ -138,6 +151,7 @@ function showFinalCard() {
         <button class="reset-btn" id="resetGameBtn">НАЧАТЬ ЗАНОВО</button>
     `;
     cardStack.appendChild(finalCardDiv);
+    currentCardElement = finalCardDiv;
     
     const resetBtn = document.getElementById('resetGameBtn');
     if (resetBtn) {
@@ -146,25 +160,7 @@ function showFinalCard() {
             resetGame();
         });
     }
-    
-    currentCardElement = finalCardDiv;
     updateStats();
-}
-
-function createNewCard(text) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<div class="card-text">${escapeHtml(text)}</div>`;
-    return card;
-}
-
-function escapeHtml(text) {
-    return text.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
 }
 
 function loadNextCard() {
@@ -175,19 +171,17 @@ function loadNextCard() {
     
     const nextText = remainingCards.shift();
     updateStats();
-    
     const newCard = createNewCard(nextText);
     cardStack.appendChild(newCard);
     currentCardElement = newCard;
-    currentCard = newCard;
+    currentCardElement.style.transform = '';
 }
 
-function removeCurrentCard(direction) {
-    if (!currentCardElement) return;
+function removeCurrentCard(direction = 'right') {
+    if (!currentCardElement || isAnimating) return;
+    isAnimating = true;
     
-    if (direction) {
-        currentCardElement.classList.add(`swipe-${direction}`);
-    }
+    currentCardElement.classList.add(`swipe-${direction}`);
     
     setTimeout(() => {
         if (currentCardElement && currentCardElement.parentNode) {
@@ -199,9 +193,9 @@ function removeCurrentCard(direction) {
 }
 
 function resetGame() {
+    isAnimating = false;
     remainingCards = shuffleArray([...CHALLENGES_LIST]);
     updateStats();
-    
     cardStack.innerHTML = '';
     
     const firstText = remainingCards.shift();
@@ -209,130 +203,136 @@ function resetGame() {
     const firstCard = createNewCard(firstText);
     cardStack.appendChild(firstCard);
     currentCardElement = firstCard;
-    currentCard = firstCard;
-    
-    isAnimating = false;
+    currentCardElement.style.transform = '';
 }
 
-// ========== ОБРАБОТЧИКИ СВАЙПА ==========
-function initSwipeListener(element) {
-    if (!element) return;
+function initSwipe() {
+    const swipeArea = document.getElementById('swipeArea');
+    let touchStartX = 0, touchStartY = 0;
+    let isSwiping = false;
+    let hasMovedEnough = false;
+    const SWIPE_THRESHOLD = 60;
+    const MOVE_THRESHOLD = 10;
     
-    element.addEventListener('touchstart', (e) => {
+    function onStart(clientX, clientY, target) {
         if (isAnimating) return;
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-        currentCard = e.currentTarget;
-    }, { passive: true });
+        if (!currentCardElement || !currentCardElement.contains(target)) return;
+        
+        touchStartX = clientX;
+        touchStartY = clientY;
+        isSwiping = true;
+        hasMovedEnough = false;
+        
+        currentCardElement.style.transition = 'none';
+    }
     
-    element.addEventListener('touchmove', (e) => {
-        if (isAnimating || !currentCard) return;
+    function onMove(clientX, clientY) {
+        if (!isSwiping || isAnimating || !currentCardElement) return;
         
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - startX;
-        const deltaY = touch.clientY - startY;
+        const deltaX = clientX - touchStartX;
+        const deltaY = clientY - touchStartY;
         
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-            e.preventDefault();
-            currentCard.style.transform = `translate(${deltaX * 0.5}px, ${deltaY * 0.3}px) rotate(${deltaX * 0.03}deg)`;
+        if (!hasMovedEnough && (Math.abs(deltaX) > MOVE_THRESHOLD || Math.abs(deltaY) > MOVE_THRESHOLD)) {
+            hasMovedEnough = true;
         }
-    }, { passive: false });
+        
+        if (hasMovedEnough) {
+            const moveX = deltaX * 0.6;
+            const moveY = deltaY * 0.3;
+            const rotate = deltaX * 0.05;
+            currentCardElement.style.transform = `translate(${moveX}px, ${moveY}px) rotate(${rotate}deg)`;
+        }
+    }
     
-    element.addEventListener('touchend', (e) => {
-        if (isAnimating || !currentCard) {
-            currentCard = null;
+    function onEnd(clientX, clientY) {
+        if (!isSwiping || isAnimating || !currentCardElement) {
+            isSwiping = false;
             return;
         }
         
-        const endX = e.changedTouches[0].clientX;
-        const endY = e.changedTouches[0].clientY;
-        const deltaX = endX - startX;
-        const deltaY = endY - startY;
+        const deltaX = clientX - touchStartX;
+        const deltaY = clientY - touchStartY;
+        const absDeltaX = Math.abs(deltaX);
+        const absDeltaY = Math.abs(deltaY);
         
-        currentCard.style.transform = '';
+        currentCardElement.style.transition = '';
+        currentCardElement.style.transform = '';
         
-        if (Math.abs(deltaX) > 80) {
-            isAnimating = true;
-            const direction = deltaX > 0 ? 'right' : 'left';
-            removeCurrentCard(direction);
-        } else if (Math.abs(deltaY) > 80) {
-            isAnimating = true;
-            const direction = deltaY > 0 ? 'down' : 'up';
+        let direction = null;
+        
+        if (absDeltaX > SWIPE_THRESHOLD || absDeltaY > SWIPE_THRESHOLD) {
+            if (absDeltaX > absDeltaY) {
+                direction = deltaX > 0 ? 'right' : 'left';
+            } else {
+                direction = deltaY > 0 ? 'down' : 'up';
+            }
+        } else if (!hasMovedEnough && absDeltaX < 10 && absDeltaY < 10) {
+            direction = 'right';
+        }
+        
+        if (direction) {
             removeCurrentCard(direction);
         }
         
-        currentCard = null;
+        isSwiping = false;
+        hasMovedEnough = false;
+    }
+    
+    // Touch events
+    swipeArea.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        onStart(touch.clientX, touch.clientY, e.target);
+        if (isSwiping) e.preventDefault();
+    }, { passive: false });
+    
+    swipeArea.addEventListener('touchmove', (e) => {
+        if (!isSwiping) return;
+        const touch = e.touches[0];
+        onMove(touch.clientX, touch.clientY);
+        e.preventDefault();
+    }, { passive: false });
+    
+    swipeArea.addEventListener('touchend', (e) => {
+        if (!isSwiping) return;
+        const changed = e.changedTouches[0];
+        onEnd(changed.clientX, changed.clientY);
+        e.preventDefault();
     });
     
-    // Для мыши (десктоп)
-    element.addEventListener('mousedown', (e) => {
+    // Mouse events (desktop)
+    let mouseDown = false;
+    swipeArea.addEventListener('mousedown', (e) => {
         if (isAnimating) return;
-        startX = e.clientX;
-        startY = e.clientY;
-        currentCard = e.currentTarget;
-        currentCard.style.cursor = 'grabbing';
+        if (!currentCardElement || !currentCardElement.contains(e.target)) return;
+        e.preventDefault();
+        mouseDown = true;
+        onStart(e.clientX, e.clientY, e.target);
     });
     
     window.addEventListener('mousemove', (e) => {
-        if (isAnimating || !currentCard) return;
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-            currentCard.style.transform = `translate(${deltaX * 0.5}px, ${deltaY * 0.3}px) rotate(${deltaX * 0.03}deg)`;
-        }
+        if (!mouseDown || !isSwiping) return;
+        onMove(e.clientX, e.clientY);
     });
     
     window.addEventListener('mouseup', (e) => {
-        if (isAnimating || !currentCard) {
-            currentCard = null;
-            return;
+        if (!mouseDown) return;
+        mouseDown = false;
+        if (isSwiping) {
+            onEnd(e.clientX, e.clientY);
         }
-        
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        currentCard.style.transform = '';
-        
-        if (Math.abs(deltaX) > 80) {
-            isAnimating = true;
-            const direction = deltaX > 0 ? 'right' : 'left';
-            removeCurrentCard(direction);
-        } else if (Math.abs(deltaY) > 80) {
-            isAnimating = true;
-            const direction = deltaY > 0 ? 'down' : 'up';
-            removeCurrentCard(direction);
-        }
-        
-        currentCard = null;
-        if (currentCardElement) {
-            currentCardElement.style.cursor = 'grab';
-        }
+        isSwiping = false;
     });
 }
 
-// ========== ИНИЦИАЛИЗАЦИЯ ==========
 function init() {
     remainingCards = shuffleArray([...CHALLENGES_LIST]);
     updateStats();
-    
     const firstText = remainingCards.shift();
     updateStats();
     const firstCard = createNewCard(firstText);
     cardStack.appendChild(firstCard);
     currentCardElement = firstCard;
-    
-    initSwipeListener(currentCardElement);
-    
-    const observer = new MutationObserver(() => {
-        const newCard = document.querySelector('#cardStack .card:not(.final-card):last-child');
-        if (newCard && newCard !== currentCardElement && !newCard.classList.contains('final-card')) {
-            initSwipeListener(newCard);
-            currentCardElement = newCard;
-        }
-    });
-    
-    observer.observe(cardStack, { childList: true, subtree: false });
+    initSwipe();
 }
 
 init();
